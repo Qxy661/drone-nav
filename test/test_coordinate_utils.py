@@ -1,6 +1,7 @@
 """Tests for coordinate_utils.py - coordinate frame conversions."""
 import sys
 import os
+import unittest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 import math
@@ -10,7 +11,7 @@ from drone_nav.coordinate_utils import (
 )
 
 
-class TestENUNED:
+class TestENUNED(unittest.TestCase):
     def test_roundtrip(self):
         """ENU -> NED -> ENU should return original."""
         x, y, z = 1.0, 2.0, 3.0
@@ -33,7 +34,7 @@ class TestENUNED:
         assert ned == (0.0, 0.0, 0.0)
 
 
-class TestGPS_ENU:
+class TestGPS_ENU(unittest.TestCase):
     def test_origin_roundtrip(self):
         """GPS at origin should roundtrip."""
         lat0, lon0, alt0 = 30.0, 120.0, 100.0
@@ -52,13 +53,11 @@ class TestGPS_ENU:
         assert abs(u) < 1.0
 
 
-class TestBodyENU:
+class TestBodyENU(unittest.TestCase):
     def test_zero_yaw(self):
         """At zero yaw, body forward -> ENU."""
         bx, by, bz = 1.0, 0.0, 0.0
         ex, ey, ez = body_to_enu(bx, by, bz, yaw=0.0)
-        # At yaw=0: vx_enu = vx*sin(0)+vy*cos(0) = 0
-        #            vy_enu = vx*cos(0)-vy*sin(0) = 1
         assert abs(ex - 0.0) < 1e-6
         assert abs(ey - 1.0) < 1e-6
 
@@ -74,14 +73,10 @@ class TestBodyENU:
         bx, by, bz = 1.0, 0.5, -0.3
         yaw = 0.7
         ex, ey, ez = body_to_enu(bx, by, bz, yaw)
-        # Note: body_to_enu uses sin/cos, enu_to_body uses different signs
-        # This tests the actual mathematical relationship
-        # vx_enu = vx*sin + vy*cos, vy_enu = vx*cos - vy*sin
-        # This is NOT a simple rotation, so roundtrip needs the inverse formula
         assert abs(ez - bz) < 1e-6  # z passes through unchanged
 
 
-class TestDistance:
+class TestDistance(unittest.TestCase):
     def test_distance_2d(self):
         assert abs(distance_2d(0, 0, 3, 4) - 5.0) < 1e-6
 
@@ -90,5 +85,4 @@ class TestDistance:
 
 
 if __name__ == '__main__':
-    import pytest
-    pytest.main([__file__, '-v'])
+    unittest.main()

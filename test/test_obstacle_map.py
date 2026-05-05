@@ -3,11 +3,12 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
+import unittest
 import math
 import numpy as np
 
 
-class TestObstacleMapLogic:
+class TestObstacleMapLogic(unittest.TestCase):
     """Test the pure algorithm logic without ROS2."""
 
     def test_grid_initialization(self):
@@ -104,5 +105,4 @@ class TestObstacleMapLogic:
 
 
 if __name__ == '__main__':
-    import pytest
-    pytest.main([__file__, '-v'])
+    unittest.main()
