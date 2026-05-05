@@ -1,0 +1,86 @@
+# =============================================================================
+# drone_nav - Navigation Parameters Configuration
+# All parameters for waypoint navigation, path planning, and obstacle mapping
+# =============================================================================
+
+# --- Waypoint Navigator Parameters ---
+waypoint_navigator:
+  ros__parameters:
+    # Test mode: set to true for SITL simulation (no real hardware)
+    test_mode: true
+
+    # Path to waypoints YAML file (empty = no pre-loaded waypoints)
+    waypoints_file: ""
+
+    # Distance threshold to consider a waypoint reached (meters)
+    acceptance_radius: 2.0
+
+    # Time to hover at each waypoint before moving on (seconds)
+    hover_time: 3.0
+
+    # Navigation loop update rate (Hz)
+    update_rate: 10.0
+
+
+# --- Path Planner Parameters ---
+mission_manager:
+  ros__parameters:
+    # Test mode for SITL
+    test_mode: true
+
+    # Automatically replan when obstacles are detected
+    replan_on_obstacle: true
+
+    # Path planning algorithm: "astar", "rrt", or "rrt_star"
+    planner_type: "astar"
+
+    # State machine update rate (Hz)
+    update_rate: 5.0
+
+
+# --- Obstacle Map Parameters ---
+obstacle_map:
+  ros__parameters:
+    # Map dimensions in grid cells
+    map_width: 200
+    map_height: 200
+
+    # Grid resolution: meters per cell
+    resolution: 0.5
+
+    # Path to obstacles config file (empty = no pre-loaded obstacles)
+    obstacles_file: ""
+
+    # Map publishing rate (Hz)
+    publish_rate: 1.0
+
+
+# --- A* Planner Specific ---
+astar:
+  # Grid connectivity: 4 or 8 (8 allows diagonal movement)
+  connectivity: 8
+
+  # Heuristic function: "euclidean", "manhattan", or "chebyshev"
+  heuristic: "euclidean"
+
+
+# --- RRT Planner Specific ---
+rrt:
+  # Step size for tree expansion (grid cells)
+  step_size: 2.0
+
+  # Probability of sampling the goal directly (0.0-1.0)
+  goal_bias: 0.1
+
+  # Maximum iterations before giving up
+  max_iterations: 5000
+
+  # Distance threshold to consider goal reached
+  goal_threshold: 2.0
+
+
+# --- RRT* Planner Specific ---
+rrt_star:
+  # All RRT parameters above apply
+  # Additionally: search radius for rewiring
+  search_radius: 5.0
