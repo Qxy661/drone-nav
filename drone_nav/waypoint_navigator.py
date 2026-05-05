@@ -143,7 +143,7 @@ class WaypointNavigatorNode(Node):
                 self.get_logger().info(
                     f"[TEST] Waypoint {self.current_wp_idx}: {wp}")
                 self.current_wp_idx += 1
-                self._test_wp_time = now  # non-blocking delay tracking
+                self._test_wp_time = time.time()  # non-blocking delay tracking
             else:
                 self._send_position(*wp)
                 dist = math.sqrt(
