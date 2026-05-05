@@ -57,6 +57,7 @@ class WaypointNavigatorNode(Node):
         self.local_pos = (0.0, 0.0, 0.0)
         self.waypoints = []
         self.current_wp_idx = 0
+        self._test_wp_time = 0.0
 
         # QoS
         qos = QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT)
@@ -142,7 +143,7 @@ class WaypointNavigatorNode(Node):
                 self.get_logger().info(
                     f"[TEST] Waypoint {self.current_wp_idx}: {wp}")
                 self.current_wp_idx += 1
-                time.sleep(0.5)  # simulate travel time
+                self._test_wp_time = now  # non-blocking delay tracking
             else:
                 self._send_position(*wp)
                 dist = math.sqrt(

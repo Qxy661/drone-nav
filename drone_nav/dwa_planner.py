@@ -60,6 +60,7 @@ class DWALocalPlanner:
         best_v, best_w = 0.0, 0.0
 
         for v_cand, w_cand in candidates:
+            self._current_v_cand = v_cand
             trajectory = self._simulate_trajectory(x, y, theta, v_cand, w_cand)
             score = self._evaluate_trajectory(trajectory, goal, obstacles)
             if score > best_score:
@@ -132,9 +133,9 @@ class DWALocalPlanner:
         dist_score = min(min_dist / (self.cfg.safe_distance + self.cfg.robot_radius), 1.0)
 
         # velocity: 鼓励前进 (v > 0)
-        v_start = trajectory[0][0] if len(trajectory) > 1 else 0
-        # 用起始速度, 但避免v=0永远得0分
-        # 给小速度也给一定分
+        # trajectory[i] = (x, y, theta), v is passed via state; use candidate v
+        # We store v as a class attribute during plan() for scoring
+        v_start = getattr(self, '_current_v_cand', 0.0)
         vel_score = max(0, (v_start + 0.1) / (self.cfg.max_speed + 0.1))
         vel_score = min(vel_score, 1.0)
 

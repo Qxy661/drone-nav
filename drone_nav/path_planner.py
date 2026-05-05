@@ -41,7 +41,7 @@ class AStarPlanner:
             nr, nc = pos[0]+dr, pos[1]+dc
             if self._ok((nr, nc)):
                 if abs(dr)+abs(dc) == 2:
-                    if self.grid[pos[0]+dr][pos[1]] == 0 or self.grid[pos[0]][pos[1]+dc] == 0:
+                    if self.grid[pos[0]+dr][pos[1]] == 0 and self.grid[pos[0]][pos[1]+dc] == 0:
                         result.append(((nr, nc), math.sqrt(2)))
                     else:
                         continue
@@ -90,8 +90,7 @@ class RRTPlanner:
         self.goal_bias = goal_bias
         self.max_iter = max_iterations
         self.goal_thresh = goal_threshold
-        if seed is not None:
-            random.seed(seed)
+        self._rng = random.Random(seed)
 
     def _collision_free(self, p1, p2):
         dx, dy = p2[0]-p1[0], p2[1]-p1[1]
@@ -130,7 +129,7 @@ class RRTPlanner:
         tree = [start]
         parent = {0: -1}
         for _ in range(self.max_iter):
-            rand = goal if random.random() < self.goal_bias else (random.uniform(0, self.cols-1), random.uniform(0, self.rows-1))
+            rand = goal if self._rng.random() < self.goal_bias else (self._rng.uniform(0, self.cols-1), self._rng.uniform(0, self.rows-1))
             ni = self._nearest(tree, rand)
             new = self._steer(tree[ni], rand)
             if not self._collision_free(tree[ni], new):
@@ -160,8 +159,7 @@ class RRTStarPlanner:
         self.max_iter = max_iterations
         self.goal_thresh = goal_threshold
         self.search_radius = search_radius
-        if seed is not None:
-            random.seed(seed)
+        self._rng = random.Random(seed)
 
     def _collision_free(self, p1, p2):
         dx, dy = p2[0]-p1[0], p2[1]-p1[1]
@@ -192,7 +190,9 @@ class RRTStarPlanner:
 
     def _near(self, tree, point):
         n = len(tree)
-        r = min(self.search_radius, 2.0*math.sqrt(math.log(n+1)/(n+1)))
+        d = 2  # dimension
+        gamma = 2.0 * math.sqrt(1.0 + 1.0 / d)
+        r = min(self.search_radius, gamma * (math.log(n + 1) / (n + 1)) ** (1.0 / d))
         r = max(r, self.step_size)
         return [i for i, nd in enumerate(tree) if self._dist(nd, point) <= r]
 
@@ -204,7 +204,7 @@ class RRTStarPlanner:
         best_goal_idx = None
         best_goal_cost = float("inf")
         for _ in range(self.max_iter):
-            rand = goal if random.random() < self.goal_bias else (random.uniform(0, self.cols-1), random.uniform(0, self.rows-1))
+            rand = goal if self._rng.random() < self.goal_bias else (self._rng.uniform(0, self.cols-1), self._rng.uniform(0, self.rows-1))
             min_d, ni = float("inf"), 0
             for i, nd in enumerate(tree):
                 d = self._dist(nd, rand)
@@ -245,6 +245,91 @@ class RRTStarPlanner:
             path.reverse()
             return path
         return None
+
+
+def smooth_path_douglas_peucker(path, epsilon=1.0):
+    """Douglas-Peucker path simplification.
+
+    Reduces the number of points while preserving path shape.
+    Args:
+        path: [(x,y), ...] waypoints
+        epsilon: max perpendicular distance tolerance
+    Returns:
+        Simplified path
+    """
+    if len(path) <= 2:
+        return list(path)
+
+    # Find point with max distance from line (first->last)
+    first, last = path[0], path[-1]
+    max_dist = 0.0
+    max_idx = 0
+    for i in range(1, len(path) - 1):
+        d = _point_line_distance(path[i], first, last)
+        if d > max_dist:
+            max_dist = d
+            max_idx = i
+
+    if max_dist > epsilon:
+        left = smooth_path_douglas_peucker(path[:max_idx + 1], epsilon)
+        right = smooth_path_douglas_peucker(path[max_idx:], epsilon)
+        return left[:-1] + right
+    else:
+        return [first, last]
+
+
+def _point_line_distance(point, line_start, line_end):
+    """Perpendicular distance from point to line segment."""
+    x0, y0 = point
+    x1, y1 = line_start
+    x2, y2 = line_end
+    dx, dy = x2 - x1, y2 - y1
+    if abs(dx) < 1e-9 and abs(dy) < 1e-9:
+        return math.sqrt((x0 - x1)**2 + (y0 - y1)**2)
+    t = max(0, min(1, ((x0 - x1) * dx + (y0 - y1) * dy) / (dx * dx + dy * dy)))
+    proj_x = x1 + t * dx
+    proj_y = y1 + t * dy
+    return math.sqrt((x0 - proj_x)**2 + (y0 - proj_y)**2)
+
+
+def smooth_path_bezier(path, num_points=50):
+    """Cubic Bezier curve smoothing for path.
+
+    Uses the path waypoints as control points to generate
+    a smooth curve through (approximately) the waypoints.
+    """
+    if len(path) < 2:
+        return list(path)
+    if len(path) == 2:
+        return list(path)
+
+    result = []
+    for i in range(len(path) - 1):
+        p0 = path[max(0, i - 1)]
+        p1 = path[i]
+        p2 = path[min(len(path) - 1, i + 1)]
+        p3 = path[min(len(path) - 1, i + 2)]
+
+        # Control points (Catmull-Rom to Bezier conversion)
+        cp1 = (p1[0] + (p2[0] - p0[0]) / 6.0,
+               p1[1] + (p2[1] - p0[1]) / 6.0)
+        cp2 = (p2[0] - (p3[0] - p1[0]) / 6.0,
+               p2[1] - (p3[1] - p1[1]) / 6.0)
+
+        steps = max(2, num_points // max(1, len(path) - 1))
+        for j in range(steps):
+            t = j / steps
+            t2 = t * t
+            t3 = t2 * t
+            mt = 1 - t
+            mt2 = mt * mt
+            mt3 = mt2 * mt
+            x = mt3 * p1[0] + 3 * mt2 * t * cp1[0] + 3 * mt * t2 * cp2[0] + t3 * p2[0]
+            y = mt3 * p1[1] + 3 * mt2 * t * cp1[1] + 3 * mt * t2 * cp2[1] + t3 * p2[1]
+            result.append((x, y))
+
+    result.append(path[-1])
+    return result
 
 
 def visualize_path(grid, path=None, start=None, goal=None, title="Path Planning", save_path=None):

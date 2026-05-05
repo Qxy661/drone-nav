@@ -63,9 +63,10 @@ class ObstacleMap(Node):
 
     def add_circle_obstacle(self, cx, cy, radius):
         """Add a circular obstacle in world coordinates."""
-        gx = int(cx / self.resolution)
-        gy = int(cy / self.resolution)
-        gr = int(radius / self.resolution)
+        import math
+        gx = math.floor(cx / self.resolution)
+        gy = math.floor(cy / self.resolution)
+        gr = max(1, math.ceil(radius / self.resolution))
         for y in range(max(0, gy-gr), min(self.height, gy+gr+1)):
             for x in range(max(0, gx-gr), min(self.width, gx+gr+1)):
                 if (x-gx)**2 + (y-gy)**2 <= gr**2:
@@ -73,16 +74,18 @@ class ObstacleMap(Node):
 
     def add_rectangle_obstacle(self, x1, y1, x2, y2):
         """Add a rectangular obstacle in world coordinates."""
-        gx1 = max(0, int(x1 / self.resolution))
-        gy1 = max(0, int(y1 / self.resolution))
-        gx2 = min(self.width, int(x2 / self.resolution))
-        gy2 = min(self.height, int(y2 / self.resolution))
+        import math
+        gx1 = max(0, math.floor(x1 / self.resolution))
+        gy1 = max(0, math.floor(y1 / self.resolution))
+        gx2 = min(self.width, math.ceil(x2 / self.resolution))
+        gy2 = min(self.height, math.ceil(y2 / self.resolution))
         self.grid[gy1:gy2, gx1:gx2] = 100
 
     def is_occupied(self, x, y):
         """Check if world coordinate (x,y) is occupied."""
-        gx = int(x / self.resolution)
-        gy = int(y / self.resolution)
+        import math
+        gx = math.floor(x / self.resolution)
+        gy = math.floor(y / self.resolution)
         if 0 <= gx < self.width and 0 <= gy < self.height:
             return self.grid[gy, gx] == 100
         return True  # Out of bounds = occupied

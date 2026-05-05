@@ -1,5 +1,6 @@
 """mission_manager.py - High-level mission orchestration ROS2 node."""
 
+import json
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
@@ -35,6 +36,7 @@ class MissionManager(Node):
         self.goal_position = None
         self.current_path = []
         self.current_path_idx = 0
+        self._obstacle_grid = None
 
         self.state_pub = self.create_publisher(String, "/nav/mission_state", 10)
         self.goal_pub = self.create_publisher(PoseStamped, "/nav/goal_pose", 10)
@@ -68,7 +70,7 @@ class MissionManager(Node):
             return
         try:
             from drone_nav.path_planner import AStarPlanner, RRTPlanner
-            grid = [[0]*100 for _ in range(100)]
+            grid = self._obstacle_grid if hasattr(self, '_obstacle_grid') and self._obstacle_grid else [[0]*100 for _ in range(100)]
             start = (0, 0)
             goal = (int(self.goal_position[0]), int(self.goal_position[1]))
             goal = (min(goal[0], 99), min(goal[1], 99))
@@ -96,6 +98,13 @@ class MissionManager(Node):
             self._transition_to(MissionState.IDLE)
 
     def _obstacle_cb(self, msg):
+        """接收障碍物信息并更新内部栅格"""
+        try:
+            data = json.loads(msg.data)
+            if "grid" in data:
+                self._obstacle_grid = data["grid"]
+        except (json.JSONDecodeError, KeyError):
+            pass
         if self.replan and self.state == MissionState.NAVIGATING:
             self.get_logger().warn("Obstacle detected, replanning...")
             self._transition_to(MissionState.PLANNING)
