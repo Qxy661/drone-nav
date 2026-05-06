@@ -37,11 +37,13 @@ class MissionManager(Node):
         self.current_path = []
         self.current_path_idx = 0
         self._obstacle_grid = None
+        self._robot_pos = (0, 0)
 
         self.state_pub = self.create_publisher(String, "/nav/mission_state", 10)
         self.goal_pub = self.create_publisher(PoseStamped, "/nav/goal_pose", 10)
         self.create_subscription(String, "/nav/navigator_status", self._nav_status_cb, 10)
         self.create_subscription(PoseStamped, "/nav/obstacle_detected", self._obstacle_cb, 10)
+        self.create_subscription(PoseStamped, "/mavros/local_position/pose", self._pos_cb, 10)
         self.timer = self.create_timer(1.0/self.update_rate, self._update)
         self._planner = None
         self.get_logger().info(f"MissionManager started state={self.state.value} planner={self.planner_type}")
@@ -68,16 +70,20 @@ class MissionManager(Node):
         if self.goal_position is None:
             self._transition_to(MissionState.IDLE)
             return
+
+        if self._obstacle_grid is None:
+            self.get_logger().warn("No obstacle data yet, waiting...")
+            return  # stay in PLANNING, retry next tick
+
         try:
             from drone_nav.path_planner import AStarPlanner, RRTPlanner
-            grid = self._obstacle_grid if hasattr(self, '_obstacle_grid') and self._obstacle_grid else [[0]*100 for _ in range(100)]
-            start = (0, 0)
+            start = self._robot_pos
             goal = (int(self.goal_position[0]), int(self.goal_position[1]))
             goal = (min(goal[0], 99), min(goal[1], 99))
             if self.planner_type == "astar":
-                planner = AStarPlanner(grid)
+                planner = AStarPlanner(self._obstacle_grid)
             else:
-                planner = RRTPlanner(grid, seed=42)
+                planner = RRTPlanner(self._obstacle_grid, seed=42)
             path = planner.plan(start, goal)
             if path:
                 self.current_path = path
@@ -90,6 +96,9 @@ class MissionManager(Node):
         except Exception as e:
             self.get_logger().error(f"Planning failed: {e}")
             self._transition_to(MissionState.FAILED)
+
+    def _pos_cb(self, msg):
+        self._robot_pos = (int(msg.pose.position.x), int(msg.pose.position.y))
 
     def _nav_status_cb(self, msg):
         if msg.data == "COMPLETED":
